@@ -25,12 +25,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.google.common.collect.Lists;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.util.Lists;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceInformation;
@@ -40,6 +38,9 @@ import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.util.UnitsConversionUtil;
 import org.apache.hadoop.yarn.util.resource.ResourceUtils;
 import org.apache.hadoop.yarn.util.resource.Resources;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Private
 @Evolving
@@ -90,6 +91,13 @@ public class FairSchedulerConfiguration extends Configuration {
    * not started. This property should NOT be used by end-users!
    */
   public static final String MIGRATION_MODE = CONF_PREFIX + "migration.mode";
+
+  /**
+   * Disables checking whether a placement rule is terminal or not. Only
+   * used during migration mode. This property should NOT be used by end users!
+   */
+  public static final String NO_TERMINAL_RULE_CHECK = CONF_PREFIX +
+      "no-terminal-rule.check";
 
   public static final String ALLOCATION_FILE = CONF_PREFIX + "allocation.file";
   protected static final String DEFAULT_ALLOCATION_FILE = "fair-scheduler.xml";
@@ -168,6 +176,12 @@ public class FairSchedulerConfiguration extends Configuration {
   /** Whether preemption is enabled. */
   public static final String  PREEMPTION = CONF_PREFIX + "preemption";
   public static final boolean DEFAULT_PREEMPTION = false;
+
+  protected static final String AM_PREEMPTION =
+      CONF_PREFIX + "am.preemption";
+  protected static final String AM_PREEMPTION_PREFIX =
+          CONF_PREFIX + "am.preemption.";
+  protected static final boolean DEFAULT_AM_PREEMPTION = true;
 
   protected static final String PREEMPTION_THRESHOLD =
       CONF_PREFIX + "preemption.cluster-utilization-threshold";
@@ -393,6 +407,20 @@ public class FairSchedulerConfiguration extends Configuration {
 
   public boolean getPreemptionEnabled() {
     return getBoolean(PREEMPTION, DEFAULT_PREEMPTION);
+  }
+
+  public boolean getAMPreemptionEnabled(String queueName) {
+    String propertyName = AM_PREEMPTION_PREFIX + queueName;
+
+    if (get(propertyName) != null) {
+      boolean amPreemptionEnabled =
+          getBoolean(propertyName, DEFAULT_AM_PREEMPTION);
+      LOG.debug("AM preemption enabled for queue {}: {}",
+          queueName, amPreemptionEnabled);
+      return amPreemptionEnabled;
+    }
+
+    return getBoolean(AM_PREEMPTION, DEFAULT_AM_PREEMPTION);
   }
 
   public float getPreemptionUtilizationThreshold() {

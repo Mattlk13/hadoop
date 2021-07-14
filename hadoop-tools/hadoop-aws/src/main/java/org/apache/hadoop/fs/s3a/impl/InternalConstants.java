@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.hadoop.thirdparty.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.s3a.Constants;
 
@@ -34,6 +36,16 @@ import org.apache.hadoop.fs.s3a.Constants;
  * public and stable entries.
  */
 public final class InternalConstants {
+
+  /**
+   * This declared delete as idempotent.
+   * This is an "interesting" topic in past Hadoop FS work.
+   * Essentially: with a single caller, DELETE is idempotent
+   * but in a shared filesystem, it is is very much not so.
+   * Here, on the basis that isn't a filesystem with consistency guarantees,
+   * retryable results in files being deleted.
+  */
+  public static final boolean DELETE_CONSIDERED_IDEMPOTENT = true;
 
   private InternalConstants() {
   }
@@ -85,4 +97,33 @@ public final class InternalConstants {
 
   /** 404 error code. */
   public static final int SC_404 = 404;
+
+  /** Name of the log for throttling events. Value: {@value}. */
+  public static final String THROTTLE_LOG_NAME =
+      "org.apache.hadoop.fs.s3a.throttled";
+
+  /** Directory marker attribute: see HADOOP-16613. Value: {@value}. */
+  public static final String X_DIRECTORY =
+      "application/x-directory";
+
+  /**
+   * A configuration option for test use only: maximum
+   * part count on block writes/uploads.
+   * Value: {@value}.
+   */
+  @VisibleForTesting
+  public static final String UPLOAD_PART_COUNT_LIMIT =
+          "fs.s3a.internal.upload.part.count.limit";
+
+  /**
+   * Maximum entries you can upload in a single file write/copy/upload.
+   * Value: {@value}.
+   */
+  public static final int DEFAULT_UPLOAD_PART_COUNT_LIMIT = 10000;
+
+  /**
+   * The system property used by the AWS SDK to identify the region.
+   */
+  public static final String AWS_REGION_SYSPROP = "aws.region";
+
 }

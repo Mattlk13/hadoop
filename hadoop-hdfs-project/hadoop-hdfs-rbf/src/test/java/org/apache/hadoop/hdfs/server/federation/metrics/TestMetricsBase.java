@@ -250,12 +250,24 @@ public class TestMetricsBase {
     MembershipState record =
         MembershipState.newInstance(routerId, ns, nn, "testcluster",
             "testblock-" + ns, "testrpc-" + ns + nn, "testservice-" + ns + nn,
-            "testlifeline-" + ns + nn, "testweb-" + ns + nn, state, false);
+            "testlifeline-" + ns + nn, "http", "testweb-" + ns + nn,
+            state, false);
     NamenodeHeartbeatRequest request =
         NamenodeHeartbeatRequest.newInstance(record);
     NamenodeHeartbeatResponse response =
         membershipStore.namenodeHeartbeat(request);
     assertTrue(response.getResult());
     return record;
+  }
+
+  // refresh namenode registration for new attributes
+  public boolean refreshNamenodeRegistration(NamenodeHeartbeatRequest request)
+      throws IOException {
+    boolean result = membershipStore.namenodeHeartbeat(request).getResult();
+    membershipStore.loadCache(true);
+    MembershipNamenodeResolver resolver =
+        (MembershipNamenodeResolver) router.getNamenodeResolver();
+    resolver.loadCache(true);
+    return result;
   }
 }

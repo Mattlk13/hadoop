@@ -25,6 +25,7 @@
 
 char** split_delimiter(char *value, const char *delim) {
   char **return_values = NULL;
+  char **new_return_values;
   char *temp_tok = NULL;
   char *tempstr = NULL;
   int size = 0;
@@ -60,8 +61,15 @@ char** split_delimiter(char *value, const char *delim) {
       // Make sure returned values has enough space for the trailing NULL.
       if (size >= return_values_size - 1) {
         return_values_size += per_alloc_size;
-        return_values = (char **) realloc(return_values,(sizeof(char *) *
+        new_return_values = (char **) realloc(return_values,(sizeof(char *) *
           return_values_size));
+        if (!new_return_values) {
+          fprintf(ERRORFILE, "Reallocation error for return_values in %s.\n",
+                  __func__);
+          failed = 1;
+          goto cleanup;
+        }
+        return_values = new_return_values;
 
         // Make sure new added memory are filled with NULL
         for (int i = size; i < return_values_size; i++) {
@@ -323,6 +331,12 @@ const char *get_error_message(const int error_code) {
         return "Invalid docker runtime";
       case DOCKER_SERVICE_MODE_DISABLED:
         return "Docker service mode disabled";
+      case ERROR_RUNC_SETUP_FAILED:
+        return "runC setup failed";
+      case ERROR_RUNC_RUN_FAILED:
+        return "runC run failed";
+      case ERROR_RUNC_REAP_LAYER_MOUNTS_FAILED:
+        return "runC reap layer mounts failed";
       default:
         return "Unknown error code";
     }

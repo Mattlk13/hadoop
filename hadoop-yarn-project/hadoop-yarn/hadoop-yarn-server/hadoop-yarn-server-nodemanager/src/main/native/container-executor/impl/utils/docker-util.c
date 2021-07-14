@@ -1169,7 +1169,8 @@ static int check_privileges(const char *user) {
     int child_pid = fork();
     if (child_pid == 0) {
       execl("/usr/bin/sudo", "sudo", "-U", user, "-n", "-l", "docker", NULL);
-      exit(INITIALIZE_USER_FAILED);
+      fprintf(ERRORFILE, "could not invoke docker with sudo - %s\n", strerror(errno));
+      _exit(INITIALIZE_USER_FAILED);
     } else {
       while ((waitid = waitpid(child_pid, &statval, 0)) != child_pid) {
         if (waitid == -1 && errno != EINTR) {
@@ -1384,7 +1385,9 @@ static char* get_docker_mount_options_string(mount_options *options) {
       return NULL;
     }
 
-    idx += sprintf(options_string, "%s", options->opts[0]);
+    if (options->num_opts > 0) {
+        idx += sprintf(options_string, "%s", options->opts[0]);
+    }
     for (i = 1; i < options->num_opts; i++) {
         idx += sprintf(options_string + idx, ",%s", options->opts[i]);
     }

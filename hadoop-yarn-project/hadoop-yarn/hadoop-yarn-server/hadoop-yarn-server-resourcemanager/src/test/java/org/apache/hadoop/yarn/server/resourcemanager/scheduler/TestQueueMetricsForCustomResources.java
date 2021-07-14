@@ -16,8 +16,8 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import org.apache.hadoop.thirdparty.com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.thirdparty.com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.MetricsSystem;
@@ -26,6 +26,7 @@ import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceInformation;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.metrics.CustomResourceMetricValue;
 import org.apache.hadoop.yarn.resourcetypes.ResourceTypesTestHelper;
 import org.apache.hadoop.yarn.server.resourcemanager.nodelabels.RMNodeLabelsManager;
 
@@ -93,8 +94,8 @@ public class TestQueueMetricsForCustomResources {
 
   public static final long GB = 1024; // MB
   private static final Configuration CONF = new Configuration();
-  private static final String CUSTOM_RES_1 = "custom_res_1";
-  private static final String CUSTOM_RES_2 = "custom_res_2";
+  public static final String CUSTOM_RES_1 = "custom_res_1";
+  public static final String CUSTOM_RES_2 = "custom_res_2";
   public static final String USER = "alice";
   private Resource defaultResource;
   private MetricsSystem ms;
@@ -293,7 +294,7 @@ public class TestQueueMetricsForCustomResources {
   }
 
   private Resource convertPreemptedSecondsToResource(QueueMetrics qm) {
-    QueueMetricsCustomResource customValues = qm
+    CustomResourceMetricValue customValues = qm
         .getAggregatedPreemptedSecondsResources();
     MutableCounterLong vcoreSeconds = qm
         .getAggregateVcoreSecondsPreempted();

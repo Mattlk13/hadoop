@@ -19,7 +19,6 @@ package org.apache.hadoop.yarn.server.resourcemanager.webapp.dao;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,6 +40,12 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CSQueue;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.ParentQueue;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.PlanQueue;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.QueueCapacities;
+import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.helper.CapacitySchedulerInfoHelper;
+
+import static org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.
+    CapacitySchedulerConfiguration.RESOURCE_PATTERN;
+import static org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.
+    CapacitySchedulerConfiguration.CAPACITY;
 
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -50,17 +55,18 @@ public class CapacitySchedulerQueueInfo {
   @XmlTransient
   static final float EPSILON = 1e-8f;
 
-  @XmlTransient
   protected String queuePath;
-
   protected float capacity;
   protected float usedCapacity;
   protected float maxCapacity;
   protected float absoluteCapacity;
   protected float absoluteMaxCapacity;
   protected float absoluteUsedCapacity;
+  protected float weight;
+  protected float normalizedWeight;
   protected int numApplications;
   protected String queueName;
+  protected boolean isAbsoluteResource;
   protected QueueState state;
   protected CapacitySchedulerQueueInfoList queues;
   protected ResourceInfo resourcesUsed;
@@ -77,6 +83,15 @@ public class CapacitySchedulerQueueInfo {
   protected QueueAclsInfo queueAcls;
   protected int queuePriority;
   protected String orderingPolicyInfo;
+  protected boolean autoCreateChildQueueEnabled;
+  protected LeafQueueTemplateInfo leafQueueTemplate;
+  protected String mode;
+  protected String queueType;
+  protected String creationMethod;
+  protected String autoCreationEligibility;
+  protected String defaultNodeLabelExpression;
+  protected AutoQueueTemplatePropertiesInfo autoQueueTemplateProperties =
+      new AutoQueueTemplatePropertiesInfo();
 
   CapacitySchedulerQueueInfo() {
   };
@@ -98,12 +113,15 @@ public class CapacitySchedulerQueueInfo {
         cap(q.getAbsoluteMaximumCapacity(), 0f, 1f) * 100;
     absoluteUsedCapacity =
         cap(q.getAbsoluteUsedCapacity(), 0f, 1f) * 100;
+    weight = q.getQueueCapacities().getWeight();
+    normalizedWeight = q.getQueueCapacities().getNormalizedWeight();
     numApplications = q.getNumApplications();
     allocatedContainers = q.getMetrics().getAllocatedContainers();
     pendingContainers = q.getMetrics().getPendingContainers();
     reservedContainers = q.getMetrics().getReservedContainers();
     queueName = q.getQueueName();
     state = q.getState();
+    defaultNodeLabelExpression = q.getDefaultNodeLabelExpression();
     resourcesUsed = new ResourceInfo(q.getUsedResources());
     if (q instanceof PlanQueue && !((PlanQueue) q).showReservationsAsQueues()) {
       hideReservationQueues = true;
@@ -119,6 +137,12 @@ public class CapacitySchedulerQueueInfo {
     QueueResourceQuotas qResQuotas = q.getQueueResourceQuotas();
     populateQueueCapacities(qCapacities, qResQuotas);
 
+    mode = CapacitySchedulerInfoHelper.getMode(q);
+    queueType = CapacitySchedulerInfoHelper.getQueueType(q);
+    creationMethod = CapacitySchedulerInfoHelper.getCreationMethod(q);
+    autoCreationEligibility = CapacitySchedulerInfoHelper
+        .getAutoCreationEligibility(q);
+
     ResourceUsage queueResourceUsage = q.getQueueResourceUsage();
     populateQueueResourceUsage(queueResourceUsage);
 
@@ -131,7 +155,7 @@ public class CapacitySchedulerQueueInfo {
     CapacitySchedulerConfiguration conf = cs.getConfiguration();
     queueAcls = new QueueAclsInfo();
     for (Map.Entry<AccessType, AccessControlList> e : conf
-        .getAcls(queueName).entrySet()) {
+        .getAcls(queuePath).entrySet()) {
       QueueAclInfo queueAcl = new QueueAclInfo(e.getKey().toString(),
           e.getValue().getAclString());
       queueAcls.add(queueAcl);
@@ -139,8 +163,8 @@ public class CapacitySchedulerQueueInfo {
 
     String aclApplicationMaxPriority = "acl_" +
         StringUtils.toLowerCase(AccessType.APPLICATION_MAX_PRIORITY.toString());
-    String priorityAcls = conf.get(queuePath + aclApplicationMaxPriority,
-        conf.ALL_ACL);
+    String priorityAcls = conf.get(CapacitySchedulerConfiguration
+        .getQueuePrefix(queuePath) + aclApplicationMaxPriority, conf.ALL_ACL);
 
     QueueAclInfo queueAcl = new QueueAclInfo(
         AccessType.APPLICATION_MAX_PRIORITY.toString(), priorityAcls);
@@ -150,7 +174,18 @@ public class CapacitySchedulerQueueInfo {
     if (q instanceof ParentQueue) {
       orderingPolicyInfo = ((ParentQueue) q).getQueueOrderingPolicy()
           .getConfigName();
+      autoQueueTemplateProperties = CapacitySchedulerInfoHelper
+            .getAutoCreatedTemplate((ParentQueue) q);
     }
+
+    String configuredCapacity = conf.get(
+        CapacitySchedulerConfiguration.getQueuePrefix(queuePath) + CAPACITY);
+    isAbsoluteResource = (configuredCapacity != null)
+        && RESOURCE_PATTERN.matcher(configuredCapacity).find();
+
+    autoCreateChildQueueEnabled = conf.
+        isAutoCreateChildQueueEnabled(queuePath);
+    leafQueueTemplate = new LeafQueueTemplateInfo(conf, queuePath);
   }
 
   protected void populateQueueResourceUsage(ResourceUsage queueResourceUsage) {
@@ -203,6 +238,10 @@ public class CapacitySchedulerQueueInfo {
     return pendingContainers;
   }
 
+  public boolean isAbsoluteResource() {
+    return isAbsoluteResource;
+  }
+
   public String getQueueName() {
     return this.queueName;
   }
@@ -236,7 +275,7 @@ public class CapacitySchedulerQueueInfo {
   static float cap(float val, float low, float hi) {
     return Math.min(Math.max(val, low), hi);
   }
-  
+
   public ArrayList<String> getNodeLabels() {
     return this.nodeLabels;
   }
@@ -275,5 +314,33 @@ public class CapacitySchedulerQueueInfo {
 
   public boolean isLeafQueue() {
     return getQueues() == null;
+  }
+
+  public boolean isAutoCreateChildQueueEnabled() {
+    return autoCreateChildQueueEnabled;
+  }
+
+  public LeafQueueTemplateInfo getLeafQueueTemplate() {
+    return leafQueueTemplate;
+  }
+
+  public String getMode() {
+    return mode;
+  }
+
+  public String getQueueType() {
+    return queueType;
+  }
+
+  public float getWeight() {
+    return weight;
+  }
+
+  public float getNormalizedWeight() {
+    return normalizedWeight;
+  }
+
+  public String getDefaultNodeLabelExpression() {
+    return defaultNodeLabelExpression;
   }
 }

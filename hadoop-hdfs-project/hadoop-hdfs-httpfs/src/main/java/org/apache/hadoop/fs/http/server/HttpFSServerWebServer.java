@@ -28,9 +28,9 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.conf.ConfigurationWithLogging;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.http.HttpServer2;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.AuthenticationFilterInitializer;
 import org.apache.hadoop.security.authentication.server.ProxyUserAuthenticationFilterInitializer;
 import org.apache.hadoop.security.authorize.AccessControlList;
@@ -151,6 +151,7 @@ public class HttpFSServerWebServer {
   }
 
   public void start() throws IOException {
+    DefaultMetricsSystem.initialize("httpfs");
     httpServer.start();
   }
 
@@ -160,6 +161,7 @@ public class HttpFSServerWebServer {
 
   public void stop() throws Exception {
     httpServer.stop();
+    DefaultMetricsSystem.shutdown();
   }
 
   public URL getUrl() {
@@ -178,10 +180,8 @@ public class HttpFSServerWebServer {
 
   public static void main(String[] args) throws Exception {
     startupShutdownMessage(HttpFSServerWebServer.class, args, LOG);
-    Configuration conf = new ConfigurationWithLogging(
-        new Configuration(true));
-    Configuration sslConf = new ConfigurationWithLogging(
-        SSLFactory.readSSLConfiguration(conf, SSLFactory.Mode.SERVER));
+    Configuration conf = new Configuration(true);
+    Configuration sslConf = SSLFactory.readSSLConfiguration(conf, SSLFactory.Mode.SERVER);
     HttpFSServerWebServer webServer =
         new HttpFSServerWebServer(conf, sslConf);
     webServer.start();

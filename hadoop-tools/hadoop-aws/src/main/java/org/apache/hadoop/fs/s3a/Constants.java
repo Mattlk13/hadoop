@@ -160,8 +160,33 @@ public final class Constants {
       DEFAULT_SSL_CHANNEL_MODE =
           DelegatingSSLSocketFactory.SSLChannelMode.Default_JSSE;
 
-  //use a custom endpoint?
+  /**
+   * Endpoint. For v4 signing and/or better performance,
+   * this should be the specific endpoint of the region
+   * in which the bucket is hosted.
+   */
   public static final String ENDPOINT = "fs.s3a.endpoint";
+
+  /**
+   * Default value of s3 endpoint: {@value}.
+   * It tells the AWS client to work it out by asking the central
+   * endpoint where the bucket lives; caching that
+   * value in the client for the life of the process.
+   * <p>
+   * Note: previously this constant was defined as
+   * {@link #CENTRAL_ENDPOINT}, however the actual
+   * S3A client code used "" as the default when
+   * {@link #ENDPOINT} was unset.
+   * As core-default.xml also set the endpoint to "",
+   * the empty string has long been the <i>real</i>
+   * default value.
+   */
+  public static final String DEFAULT_ENDPOINT = "";
+
+  /**
+   * The central endpoint :{@value}.
+   */
+  public static final String CENTRAL_ENDPOINT = "s3.amazonaws.com";
 
   //Enable path style access? Overrides default virtual hosting
   public static final String PATH_STYLE_ACCESS = "fs.s3a.path.style.access";
@@ -174,9 +199,41 @@ public final class Constants {
   public static final String PROXY_DOMAIN = "fs.s3a.proxy.domain";
   public static final String PROXY_WORKSTATION = "fs.s3a.proxy.workstation";
 
-  // number of times we should retry errors
+  /**
+   * Number of times the AWS client library should retry errors before
+   * escalating to the S3A code: {@value}.
+   */
   public static final String MAX_ERROR_RETRIES = "fs.s3a.attempts.maximum";
+
+  /**
+   * Default number of times the AWS client library should retry errors before
+   * escalating to the S3A code: {@value}.
+   */
   public static final int DEFAULT_MAX_ERROR_RETRIES = 10;
+
+  /**
+   * Experimental/Unstable feature: should the AWS client library retry
+   * throttle responses before escalating to the S3A code: {@value}.
+   *
+   * When set to false, the S3A connector sees all S3 throttle events,
+   * And so can update it counters and the metrics, and use its own retry
+   * policy.
+   * However, this may have adverse effects on some operations where the S3A
+   * code cannot retry as efficiently as the AWS client library.
+   *
+   * This only applies to S3 operations, not to DynamoDB or other services.
+   */
+  @InterfaceStability.Unstable
+  public static final String EXPERIMENTAL_AWS_INTERNAL_THROTTLING =
+      "fs.s3a.experimental.aws.s3.throttling";
+
+  /**
+   * Default value of {@link #EXPERIMENTAL_AWS_INTERNAL_THROTTLING},
+   * value: {@value}.
+   */
+  @InterfaceStability.Unstable
+  public static final boolean EXPERIMENTAL_AWS_INTERNAL_THROTTLING_DEFAULT =
+      true;
 
   // seconds until we give up trying to establish a connection to s3
   public static final String ESTABLISH_TIMEOUT =
@@ -186,6 +243,11 @@ public final class Constants {
   // seconds until we give up on a connection to s3
   public static final String SOCKET_TIMEOUT = "fs.s3a.connection.timeout";
   public static final int DEFAULT_SOCKET_TIMEOUT = 200000;
+
+  // milliseconds until a request is timed-out
+  public static final String REQUEST_TIMEOUT =
+      "fs.s3a.connection.request.timeout";
+  public static final int DEFAULT_REQUEST_TIMEOUT = 0;
 
   // socket send buffer to be used in Amazon client
   public static final String SOCKET_SEND_BUFFER = "fs.s3a.socket.send.buffer";
@@ -220,6 +282,33 @@ public final class Constants {
   public static final String ENABLE_MULTI_DELETE =
       "fs.s3a.multiobjectdelete.enable";
 
+  /**
+   * Number of objects to delete in a single multi-object delete {@value}.
+   * Max: 1000.
+   *
+   * A bigger value it means fewer POST requests when deleting a directory
+   * tree with many objects.
+   * However, as you are limited to only a a few thousand requests per
+   * second against a single partition of an S3 bucket,
+   * a large page size can easily overload the bucket and so trigger
+   * throttling.
+   *
+   * Furthermore, as the reaction to this request is being throttled
+   * is simply to retry it -it can take a while for the situation to go away.
+   * While a large value may give better numbers on tests and benchmarks
+   * where only a single operations being executed, once multiple
+   * applications start working with the same bucket these large
+   * deletes can be highly disruptive.
+   */
+  public static final String BULK_DELETE_PAGE_SIZE =
+      "fs.s3a.bulk.delete.page.size";
+
+  /**
+   * Default Number of objects to delete in a single multi-object
+   * delete: {@value}.
+   */
+  public static final int BULK_DELETE_PAGE_SIZE_DEFAULT = 250;
+
   // comma separated list of directories
   public static final String BUFFER_DIR = "fs.s3a.buffer.dir";
 
@@ -240,7 +329,6 @@ public final class Constants {
    * Default is {@link #FAST_UPLOAD_BUFFER_DISK}
    * Value: {@value}
    */
-  @InterfaceStability.Unstable
   public static final String FAST_UPLOAD_BUFFER =
       "fs.s3a.fast.upload.buffer";
 
@@ -249,26 +337,22 @@ public final class Constants {
    * Capacity is limited to available disk space.
    */
 
-  @InterfaceStability.Unstable
   public static final String FAST_UPLOAD_BUFFER_DISK = "disk";
 
   /**
    * Use an in-memory array. Fast but will run of heap rapidly: {@value}.
    */
-  @InterfaceStability.Unstable
   public static final String FAST_UPLOAD_BUFFER_ARRAY = "array";
 
   /**
    * Use a byte buffer. May be more memory efficient than the
    * {@link #FAST_UPLOAD_BUFFER_ARRAY}: {@value}.
    */
-  @InterfaceStability.Unstable
   public static final String FAST_UPLOAD_BYTEBUFFER = "bytebuffer";
 
   /**
    * Default buffer option: {@value}.
    */
-  @InterfaceStability.Unstable
   public static final String DEFAULT_FAST_UPLOAD_BUFFER =
       FAST_UPLOAD_BUFFER_DISK;
 
@@ -281,7 +365,6 @@ public final class Constants {
    * <p>
    * Default is {@link #DEFAULT_FAST_UPLOAD_ACTIVE_BLOCKS}
    */
-  @InterfaceStability.Unstable
   public static final String FAST_UPLOAD_ACTIVE_BLOCKS =
       "fs.s3a.fast.upload.active.blocks";
 
@@ -289,8 +372,22 @@ public final class Constants {
    * Limit of queued block upload operations before writes
    * block. Value: {@value}
    */
-  @InterfaceStability.Unstable
   public static final int DEFAULT_FAST_UPLOAD_ACTIVE_BLOCKS = 4;
+
+  /**
+   * Rather than raise an exception when an attempt is
+   * made to call the Syncable APIs, warn and downgrade.
+   * Value: {@value}.
+   */
+  public static final String DOWNGRADE_SYNCABLE_EXCEPTIONS =
+      "fs.s3a.downgrade.syncable.exceptions";
+
+  /**
+   * Default value for syncable invocation.
+   * Value: {@value}.
+   */
+  public static final boolean DOWNGRADE_SYNCABLE_EXCEPTIONS_DEFAULT =
+      false;
 
   /**
    * The capacity of executor queues for operations other than block
@@ -418,6 +515,20 @@ public final class Constants {
   public static final boolean DEFAULT_METADATASTORE_AUTHORITATIVE = false;
 
   /**
+   * Bucket validation parameter which can be set by client. This will be
+   * used in {@code S3AFileSystem.initialize(URI, Configuration)}.
+   * Value: {@value}
+   */
+  public static final String S3A_BUCKET_PROBE = "fs.s3a.bucket.probe";
+
+  /**
+   * Default value of bucket validation parameter. An existence of bucket
+   * will be validated using {@code S3AFileSystem.verifyBucketExistsV2()}.
+   * Value: {@value}
+   */
+  public static final int S3A_BUCKET_PROBE_DEFAULT = 0;
+
+  /**
    * How long a directory listing in the MS is considered as authoritative.
    */
   public static final String METADATASTORE_METADATA_TTL =
@@ -464,6 +575,13 @@ public final class Constants {
    */
   @InterfaceStability.Unstable
   public static final String INPUT_FADV_RANDOM = "random";
+
+  /**
+   * Gauge name for the input policy : {@value}.
+   * This references an enum currently exclusive to the S3A stream.
+   */
+  public static final String STREAM_READ_GAUGE_INPUT_POLICY =
+      "stream_read_gauge_input_policy";
 
   @InterfaceAudience.Private
   @InterfaceStability.Unstable
@@ -569,6 +687,25 @@ public final class Constants {
   public static final long S3GUARD_DDB_TABLE_CAPACITY_WRITE_DEFAULT = 0;
 
   /**
+   * Whether server-side encryption (SSE) is enabled or disabled on the table.
+   * By default it's disabled, meaning SSE is set to AWS owned CMK.
+   * @see com.amazonaws.services.dynamodbv2.model.SSESpecification#setEnabled
+   */
+  public static final String S3GUARD_DDB_TABLE_SSE_ENABLED =
+      "fs.s3a.s3guard.ddb.table.sse.enabled";
+
+  /**
+   * The KMS Master Key (CMK) used for the KMS encryption on the table.
+   *
+   * To specify a CMK, this config value can be its key ID, Amazon Resource
+   * Name (ARN), alias name, or alias ARN. Users only provide this config
+   * if the key is different from the default DynamoDB KMS Master Key, which is
+   * alias/aws/dynamodb.
+   */
+  public static final String S3GUARD_DDB_TABLE_SSE_CMK =
+      "fs.s3a.s3guard.ddb.table.sse.cmk";
+
+  /**
    * The maximum put or delete requests per BatchWriteItem request.
    *
    * Refer to Amazon API reference for this limit.
@@ -640,6 +777,14 @@ public final class Constants {
       = "org.apache.hadoop.fs.s3a.s3guard.DynamoDBMetadataStore";
 
   /**
+   * The warn level if S3Guard is disabled.
+   */
+  public static final String S3GUARD_DISABLED_WARN_LEVEL
+      = "fs.s3a.s3guard.disabled.warn.level";
+  public static final String DEFAULT_S3GUARD_DISABLED_WARN_LEVEL =
+      "SILENT";
+
+  /**
    * Inconsistency (visibility delay) injection settings.
    */
   @InterfaceStability.Unstable
@@ -701,8 +846,7 @@ public final class Constants {
   /**
    * Default throttled retry limit: {@value}.
    */
-  public static final int RETRY_THROTTLE_LIMIT_DEFAULT =
-      DEFAULT_MAX_ERROR_RETRIES;
+  public static final int RETRY_THROTTLE_LIMIT_DEFAULT = 20;
 
   /**
    * Interval between retry attempts on throttled requests: {@value}.
@@ -843,4 +987,110 @@ public final class Constants {
    * Value: {@value} seconds.
    */
   public static final int THREAD_POOL_SHUTDOWN_DELAY_SECONDS = 30;
+
+  /**
+   * Policy for directory markers.
+   * This is a new feature of HADOOP-13230 which addresses
+   * some scale, performance and permissions issues -but
+   * at the risk of backwards compatibility.
+   */
+  public static final String DIRECTORY_MARKER_POLICY =
+      "fs.s3a.directory.marker.retention";
+
+  /**
+   * Delete directory markers. This is the backwards compatible option.
+   * Value: {@value}.
+   */
+  public static final String DIRECTORY_MARKER_POLICY_DELETE =
+      "delete";
+
+  /**
+   * Retain directory markers.
+   * Value: {@value}.
+   */
+  public static final String DIRECTORY_MARKER_POLICY_KEEP =
+      "keep";
+
+  /**
+   * Retain directory markers in authoritative directory trees only.
+   * Value: {@value}.
+   */
+  public static final String DIRECTORY_MARKER_POLICY_AUTHORITATIVE =
+      "authoritative";
+
+  /**
+   * Default retention policy: {@value}.
+   */
+  public static final String DEFAULT_DIRECTORY_MARKER_POLICY =
+      DIRECTORY_MARKER_POLICY_DELETE;
+
+
+  /**
+   * {@code PathCapabilities} probe to verify that an S3A Filesystem
+   * has the changes needed to safely work with buckets where
+   * directoy markers have not been deleted.
+   * Value: {@value}.
+   */
+  public static final String STORE_CAPABILITY_DIRECTORY_MARKER_AWARE
+      = "fs.s3a.capability.directory.marker.aware";
+
+  /**
+   * {@code PathCapabilities} probe to indicate that the filesystem
+   * keeps directory markers.
+   * Value: {@value}.
+   */
+  public static final String STORE_CAPABILITY_DIRECTORY_MARKER_POLICY_KEEP
+      = "fs.s3a.capability.directory.marker.policy.keep";
+
+  /**
+   * {@code PathCapabilities} probe to indicate that the filesystem
+   * deletes directory markers.
+   * Value: {@value}.
+   */
+  public static final String STORE_CAPABILITY_DIRECTORY_MARKER_POLICY_DELETE
+      = "fs.s3a.capability.directory.marker.policy.delete";
+
+  /**
+   * {@code PathCapabilities} probe to indicate that the filesystem
+   * keeps directory markers in authoritative paths only.
+   * Value: {@value}.
+   */
+  public static final String
+      STORE_CAPABILITY_DIRECTORY_MARKER_POLICY_AUTHORITATIVE =
+      "fs.s3a.capability.directory.marker.policy.authoritative";
+
+  /**
+   * {@code PathCapabilities} probe to indicate that a path
+   * keeps directory markers.
+   * Value: {@value}.
+   */
+  public static final String STORE_CAPABILITY_DIRECTORY_MARKER_ACTION_KEEP
+      = "fs.s3a.capability.directory.marker.action.keep";
+
+  /**
+   * {@code PathCapabilities} probe to indicate that a path
+   * deletes directory markers.
+   * Value: {@value}.
+   */
+  public static final String STORE_CAPABILITY_DIRECTORY_MARKER_ACTION_DELETE
+      = "fs.s3a.capability.directory.marker.action.delete";
+
+  /**
+   * To comply with the XAttr rules, all headers of the object retrieved
+   * through the getXAttr APIs have the prefix: {@value}.
+   */
+  public static final String XA_HEADER_PREFIX = "header.";
+
+  /**
+   * AWS S3 region for the bucket. When set bypasses the construction of
+   * region through endpoint url.
+   */
+  public static final String AWS_REGION = "fs.s3a.endpoint.region";
+
+  /**
+   * The special S3 region which can be used to talk to any bucket.
+   * Value {@value}.
+   */
+  public static final String AWS_S3_CENTRAL_REGION = "us-east-1";
+
 }

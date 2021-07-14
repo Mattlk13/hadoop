@@ -83,6 +83,7 @@ message ResourceUtilizationProto {
   optional int32 pmem = 1;
   optional int32 vmem = 2;
   optional float cpu = 3;
+  repeated StringFloatMapProto customResources = 4;
 }
 
 message ResourceOptionProto {
@@ -243,6 +244,11 @@ message StringLongMapProto {
   required int64 value = 2;
 }
 
+message StringFloatMapProto {
+  required string key  = 1;
+  required float value = 2;
+}
+
 message ApplicationResourceUsageReportProto {
   optional int32 num_used_containers = 1;
   optional int32 num_reserved_containers = 2;
@@ -288,6 +294,7 @@ message ApplicationReportProto {
   repeated AppTimeoutsMapProto appTimeouts = 26;
   optional int64 launchTime = 27;
   optional int64 submitTime = 28;
+  optional string rmClusterId = 29;
 }
 
 message AppTimeoutsMapProto {
@@ -608,6 +615,8 @@ message QueueInfoProto {
   optional bool preemptionDisabled = 11;
   repeated QueueConfigurationsMapProto queueConfigurationsMap = 12;
   optional bool intraQueuePreemptionDisabled = 13;
+  optional float weight = 14;
+  optional string queuePath = 15;
 }
 
 message QueueConfigurationsProto {

@@ -18,10 +18,11 @@
 
 package org.apache.hadoop.hdfs.security.token.block;
 
-import com.google.common.base.Charsets;
+import org.apache.hadoop.thirdparty.com.google.common.base.Charsets;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -44,10 +45,10 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.util.Timer;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
+import org.apache.hadoop.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.thirdparty.com.google.common.base.Preconditions;
+import org.apache.hadoop.thirdparty.com.google.common.collect.HashMultiset;
+import org.apache.hadoop.thirdparty.com.google.common.collect.Multiset;
 
 /**
  * BlockTokenSecretManager can be instantiated in 2 modes, master mode
@@ -290,7 +291,7 @@ public class BlockTokenSecretManager extends
         .getBlockPoolId(), block.getBlockId(), modes, storageTypes,
         storageIds, useProto);
     if (shouldWrapQOP) {
-      String qop = Server.getEstablishedQOP();
+      String qop = Server.getAuxiliaryPortEstablishedQOP();
       if (qop != null) {
         id.setHandshakeMsg(qop.getBytes(Charsets.UTF_8));
       }
@@ -407,7 +408,7 @@ public class BlockTokenSecretManager extends
               + ", block=" + block + ", access mode=" + mode);
     }
     checkAccess(id, userId, block, mode, storageTypes, storageIds);
-    if (!Arrays.equals(retrievePassword(id), token.getPassword())) {
+    if (!MessageDigest.isEqual(retrievePassword(id), token.getPassword())) {
       throw new InvalidToken("Block token with " + id
           + " doesn't have the correct token password");
     }
@@ -427,7 +428,7 @@ public class BlockTokenSecretManager extends
               + ", block=" + block + ", access mode=" + mode);
     }
     checkAccess(id, userId, block, mode);
-    if (!Arrays.equals(retrievePassword(id), token.getPassword())) {
+    if (!MessageDigest.isEqual(retrievePassword(id), token.getPassword())) {
       throw new InvalidToken("Block token with " + id
           + " doesn't have the correct token password");
     }

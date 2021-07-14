@@ -31,11 +31,14 @@ import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.ha.ActiveStandbyElector.ActiveNotFoundException;
 import org.apache.hadoop.ha.ActiveStandbyElector.ActiveStandbyElectorCallback;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.ha.HAServiceProtocol.StateChangeRequestInfo;
 import org.apache.hadoop.ha.HAServiceProtocol.RequestSource;
+import org.apache.hadoop.security.ProviderUtils;
 import org.apache.hadoop.util.ZKUtil;
 import org.apache.hadoop.util.ZKUtil.ZKAuthInfo;
 import org.apache.hadoop.ha.HealthMonitor.State;
@@ -50,9 +53,9 @@ import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.zookeeper.data.ACL;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.hadoop.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.thirdparty.com.google.common.base.Preconditions;
+import org.apache.hadoop.thirdparty.com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -157,7 +160,10 @@ public abstract class ZKFailoverController {
     return localTarget;
   }
 
-  HAServiceState getServiceState() { return serviceState; }
+  @VisibleForTesting
+  public HAServiceState getServiceState() {
+    return serviceState;
+  }
 
   public int run(final String[] args) throws Exception {
     if (!localTarget.isAutoFailoverEnabled()) {
@@ -315,9 +321,10 @@ public abstract class ZKFailoverController {
     healthMonitor.addServiceStateCallback(new ServiceStateCallBacks());
     healthMonitor.start();
   }
-  
+
   protected void initRPC() throws IOException {
     InetSocketAddress bindAddr = getRpcAddressToBindTo();
+    LOG.info("ZKFC RpcServer binding to {}", bindAddr);
     rpcServer = new ZKFCRpcServer(conf, bindAddr, this, getPolicyProvider());
   }
 
@@ -339,8 +346,19 @@ public abstract class ZKFailoverController {
       zkAcls = Ids.CREATOR_ALL_ACL;
     }
     
-    // Parse authentication from configuration.
-    List<ZKAuthInfo> zkAuths = SecurityUtil.getZKAuthInfos(conf, ZK_AUTH_KEY);
+    // Parse authentication from configuration. Exclude any Credential providers
+    // using the hdfs scheme to avoid a circular dependency. As HDFS is likely
+    // not started when ZKFC is started, we cannot read the credentials from it.
+    Configuration c = conf;
+    try {
+      c = ProviderUtils.excludeIncompatibleCredentialProviders(
+          conf, FileSystem.getFileSystemClass("hdfs", conf));
+    } catch (UnsupportedFileSystemException e) {
+      // Should not happen in a real cluster, as the hdfs FS will always be
+      // present. Inside tests, the hdfs filesystem will not be present
+      LOG.debug("No filesystem found for the hdfs scheme", e);
+    }
+    List<ZKAuthInfo> zkAuths = SecurityUtil.getZKAuthInfos(c, ZK_AUTH_KEY);
 
     // Sanity check configuration.
     Preconditions.checkArgument(zkQuorum != null,
@@ -799,7 +817,9 @@ public abstract class ZKFailoverController {
     
         switch (lastHealthState) {
         case SERVICE_HEALTHY:
-          elector.joinElection(targetToData(localTarget));
+          if(serviceState != HAServiceState.OBSERVER) {
+            elector.joinElection(targetToData(localTarget));
+          }
           if (quitElectionOnBadState) {
             quitElectionOnBadState = false;
           }
@@ -909,7 +929,7 @@ public abstract class ZKFailoverController {
   }
   
   @VisibleForTesting
-  ActiveStandbyElector getElectorForTests() {
+  public ActiveStandbyElector getElectorForTests() {
     return elector;
   }
   

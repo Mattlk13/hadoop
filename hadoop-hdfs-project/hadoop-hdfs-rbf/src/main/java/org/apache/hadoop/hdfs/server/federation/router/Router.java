@@ -43,6 +43,7 @@ import org.apache.hadoop.hdfs.server.federation.metrics.RBFMetrics;
 import org.apache.hadoop.hdfs.server.federation.metrics.NamenodeBeanMetrics;
 import org.apache.hadoop.hdfs.server.federation.resolver.ActiveNamenodeResolver;
 import org.apache.hadoop.hdfs.server.federation.resolver.FileSubclusterResolver;
+import org.apache.hadoop.hdfs.server.federation.store.MountTableStore;
 import org.apache.hadoop.hdfs.server.federation.store.RouterStore;
 import org.apache.hadoop.hdfs.server.federation.store.StateStoreService;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
@@ -55,7 +56,7 @@ import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 /**
  * Router that provides a unified view of multiple federated HDFS clusters. It
@@ -292,6 +293,13 @@ public class Router extends CompositeService implements
     }
 
     super.serviceInit(conf);
+
+    // Set quota manager in mount store to update quota usage in mount table.
+    if (stateStore != null) {
+      MountTableStore mountstore =
+          this.stateStore.getRegisteredRecordStore(MountTableStore.class);
+      mountstore.setQuotaManager(this.quotaManager);
+    }
   }
 
   private String getDisabledDependentServices() {
@@ -542,14 +550,20 @@ public class Router extends CompositeService implements
    *
    * @return Updater of the status for the local Namenode.
    */
-  protected NamenodeHeartbeatService createLocalNamenodeHeartbeatService() {
+  @VisibleForTesting
+  public NamenodeHeartbeatService createLocalNamenodeHeartbeatService() {
     // Detect NN running in this machine
     String nsId = DFSUtil.getNamenodeNameServiceId(conf);
+    if (nsId == null) {
+      LOG.error("Cannot find local nameservice id");
+      return null;
+    }
     String nnId = null;
     if (HAUtil.isHAEnabled(conf, nsId)) {
       nnId = HAUtil.getNameNodeId(conf, nsId);
       if (nnId == null) {
         LOG.error("Cannot find namenode id for local {}", nsId);
+        return null;
       }
     }
 
@@ -777,6 +791,15 @@ public class Router extends CompositeService implements
    */
   public RouterAdminServer getAdminServer() {
     return adminServer;
+  }
+
+  /**
+   * Set router configuration.
+   * @param conf
+   */
+  @VisibleForTesting
+  public void setConf(Configuration conf) {
+    this.conf = conf;
   }
 
 }

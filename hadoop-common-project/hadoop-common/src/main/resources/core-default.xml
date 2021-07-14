@@ -48,6 +48,23 @@
   ordering of the filters.</description>
 </property>
 
+  <property>
+    <name>hadoop.http.idle_timeout.ms</name>
+    <value>60000</value>
+    <description>
+      NN/JN/DN Server connection timeout in milliseconds.
+    </description>
+  </property>
+
+<property>
+  <name>hadoop.http.metrics.enabled</name>
+  <value>true</value>
+  <description>
+    If true, set Jetty's StatisticsHandler to HTTP server to collect
+    HTTP layer metrics and register them to Hadoop metrics system.
+  </description>
+</property>
+
 <!--- security properties -->
 
 <property>
@@ -668,6 +685,9 @@
       fs.azure.account.key.*
       fs.azure.oauth2.*
       fs.adl.oauth2.*
+      fs.gs.encryption.*
+      fs.gs.proxy.*
+      fs.gs.auth.*
       credential$
       oauth.*secret
       oauth.*password
@@ -680,6 +700,27 @@
       private credentials should not be logged.
   </description>
 </property>
+
+  <property>
+    <name>hadoop.security.token.service.use_ip</name>
+    <value>true</value>
+    <description>
+      Controls whether tokens always use IP addresses.
+      DNS changes will not be detected if this option is enabled.
+      Existing client connections that break will always reconnect
+      to the IP of the original host. New clients will connect
+      to the host's new IP but fail to locate a token.
+      Disabling this option will allow existing and new clients
+      to detect an IP change and continue to locate the new host's token.
+
+      In secure multi-homed environments, this parameter will need to
+      be set to false on both cluster servers and clients (see HADOOP-7733).
+      If it is not set correctly, the symptom will be inability to
+      submit an application to YARN from an external client
+      (with error "client host not a member of the Hadoop cluster"),
+      or even from an in-cluster client if server failover occurs.
+    </description>
+  </property>
 
 <property>
   <name>hadoop.workaround.non.threadsafe.getpwuid</name>
@@ -904,7 +945,7 @@
   <name>fs.protected.directories</name>
   <value></value>
   <description>A comma-separated list of directories which cannot
-    be deleted even by the superuser unless they are empty. This
+    be deleted or renamed even by the superuser unless they are empty. This
     setting can be used to guard important system directories
     against accidental deletion due to administrator error.
   </description>
@@ -941,6 +982,133 @@
   <description>Allowed rename strategy to rename between multiple mountpoints.
     Allowed values are SAME_MOUNTPOINT,SAME_TARGET_URI_ACROSS_MOUNTPOINT and
     SAME_FILESYSTEM_ACROSS_MOUNTPOINT.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.hdfs.impl</name>
+  <value>org.apache.hadoop.hdfs.DistributedFileSystem</value>
+  <description>The DistributedFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are hdfs.
+   </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.s3a.impl</name>
+  <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+  <description>The S3AFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are s3a.</description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.ofs.impl</name>
+  <value>org.apache.hadoop.fs.ozone.RootedOzoneFileSystem</value>
+  <description>The RootedOzoneFileSystem for view file system overload scheme
+    when child file system and ViewFSOverloadScheme's schemes are ofs.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.o3fs.impl</name>
+  <value>org.apache.hadoop.fs.ozone.OzoneFileSystem</value>
+  <description>The OzoneFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are o3fs.</description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.ftp.impl</name>
+  <value>org.apache.hadoop.fs.ftp.FTPFileSystem</value>
+  <description>The FTPFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are ftp.
+   </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.webhdfs.impl</name>
+  <value>org.apache.hadoop.hdfs.web.WebHdfsFileSystem</value>
+  <description>The WebHdfsFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are webhdfs.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.swebhdfs.impl</name>
+  <value>org.apache.hadoop.hdfs.web.SWebHdfsFileSystem</value>
+  <description>The SWebHdfsFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are swebhdfs.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.file.impl</name>
+  <value>org.apache.hadoop.fs.LocalFileSystem</value>
+  <description>The LocalFileSystem for view file system overload scheme when
+   child file system and ViewFSOverloadScheme's schemes are file.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.abfs.impl</name>
+  <value>org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem</value>
+  <description>The AzureBlobFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are abfs.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.abfss.impl</name>
+  <value>org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem</value>
+  <description>The SecureAzureBlobFileSystem for view file system overload
+   scheme when child file system and ViewFSOverloadScheme's schemes are abfss.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.wasb.impl</name>
+  <value>org.apache.hadoop.fs.azure.NativeAzureFileSystem</value>
+  <description>The NativeAzureFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are wasb.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.swift.impl</name>
+  <value>org.apache.hadoop.fs.swift.snative.SwiftNativeFileSystem</value>
+  <description>The SwiftNativeFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are swift.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.oss.impl</name>
+  <value>org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem</value>
+  <description>The AliyunOSSFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are oss.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.http.impl</name>
+  <value>org.apache.hadoop.fs.http.HttpFileSystem</value>
+  <description>The HttpFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are http.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.gs.impl</name>
+  <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+  <description>The GoogleHadoopFS/Google Cloud Storage file system for view
+   file system overload scheme when child file system and ViewFSOverloadScheme's
+   schemes are gs.
+  </description>
+</property>
+
+<property>
+  <name>fs.viewfs.overload.scheme.target.https.impl</name>
+  <value>org.apache.hadoop.fs.http.HttpsFileSystem</value>
+  <description>The HttpsFileSystem for view file system overload scheme
+   when child file system and ViewFSOverloadScheme's schemes are https.
   </description>
 </property>
 
@@ -1090,8 +1258,8 @@
        Uses the values of fs.s3a.access.key and fs.s3a.secret.key.
     * com.amazonaws.auth.EnvironmentVariableCredentialsProvider: supports
         configuration of AWS access key ID and secret access key in
-        environment variables named AWS_ACCESS_KEY_ID and
-        AWS_SECRET_ACCESS_KEY, as documented in the AWS SDK.
+        environment variables named AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+        and AWS_SESSION_TOKEN as documented in the AWS SDK.
     * org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider: picks up
        IAM credentials of any EC2 VM or AWS container in which the process is running.
   </description>
@@ -1553,7 +1721,6 @@
   </description>
 </property>
 
-
 <property>
     <name>fs.s3a.s3guard.cli.prune.age</name>
     <value>86400000</value>
@@ -1625,6 +1792,27 @@
 </property>
 
 <property>
+  <name>fs.s3a.s3guard.ddb.table.sse.enabled</name>
+  <value>false</value>
+  <description>
+    Whether server-side encryption (SSE) is enabled or disabled on the table.
+    By default it's disabled, meaning SSE is set to AWS owned CMK.
+  </description>
+</property>
+
+<property>
+  <name>fs.s3a.s3guard.ddb.table.sse.cmk</name>
+  <value/>
+  <description>
+    The KMS Customer Master Key (CMK) used for the KMS encryption on the table.
+    To specify a CMK, this config value can be its key ID, Amazon Resource Name
+    (ARN), alias name, or alias ARN. Users only need to provide this config if
+    the key is different from the default DynamoDB KMS Master Key, which is
+    alias/aws/dynamodb.
+  </description>
+</property>
+
+<property>
   <name>fs.s3a.s3guard.ddb.max.retries</name>
   <value>9</value>
     <description>
@@ -1678,7 +1866,7 @@
 
 <property>
   <name>fs.s3a.retry.throttle.limit</name>
-  <value>${fs.s3a.attempts.maximum}</value>
+  <value>20</value>
   <description>
     Number of times to retry any throttled request.
   </description>
@@ -1686,9 +1874,12 @@
 
 <property>
   <name>fs.s3a.retry.throttle.interval</name>
-  <value>1000ms</value>
+  <value>100ms</value>
   <description>
-    Interval between retry attempts on throttled requests.
+    Initial between retry attempts on throttled requests, +/- 50%. chosen at random.
+    i.e. for an intial value of 3000ms, the initial delay would be in the range 1500ms to 4500ms.
+    Backoffs are exponential; again randomness is used to avoid the thundering heard problem.
+    500ms is the default value used by the AWS S3 Retry policy.
   </description>
 </property>
 
@@ -1724,11 +1915,9 @@
 
 <property>
   <name>fs.s3a.committer.magic.enabled</name>
-  <value>false</value>
+  <value>true</value>
   <description>
-    Enable support in the filesystem for the S3 "Magic" committer.
-    When working with AWS S3, S3Guard must be enabled for the destination
-    bucket, as consistent metadata listings are required.
+    Enable support in the S3A filesystem for the "Magic" committer.
   </description>
 </property>
 
@@ -1776,20 +1965,13 @@
 </property>
 
 <property>
-  <name>fs.s3a.committer.staging.abort.pending.uploads</name>
+  <name>fs.s3a.committer.abort.pending.uploads</name>
   <value>true</value>
   <description>
-    Should the staging committers abort all pending uploads to the destination
+    Should the committers abort all pending uploads to the destination
     directory?
 
-    Changing this if more than one partitioned committer is
-    writing to the same destination tree simultaneously; otherwise
-    the first job to complete will cancel all outstanding uploads from the
-    others. However, it may lead to leaked outstanding uploads from failed
-    tasks. If disabled, configure the bucket lifecycle to remove uploads
-    after a time period, and/or set up a workflow to explicitly delete
-    entries. Otherwise there is a risk that uncommitted uploads may run up
-    bills.
+    Set to false if more than one job is writing to the same directory tree.
   </description>
 </property>
 
@@ -1921,6 +2103,23 @@
 </property>
 
 <property>
+  <name>fs.s3a.connection.request.timeout</name>
+  <value>0</value>
+  <description>
+    Time out on HTTP requests to the AWS service; 0 means no timeout.
+    Measured in seconds; the usual time suffixes are all supported
+
+    Important: this is the maximum duration of any AWS service call,
+    including upload and copy operations. If non-zero, it must be larger
+    than the time to upload multi-megabyte blocks to S3 from the client,
+    and to rename many-GB files. Use with care.
+
+    Values that are larger than Integer.MAX_VALUE milliseconds are
+    converged to Integer.MAX_VALUE milliseconds
+  </description>
+</property>
+
+<property>
   <name>fs.s3a.etag.checksum.enabled</name>
   <value>false</value>
   <description>
@@ -1979,11 +2178,16 @@
   <description>
     If secure connections to S3 are enabled, configures the SSL
     implementation used to encrypt connections to S3. Supported values are:
-    "default_jsse" and "default_jsse_with_gcm". "default_jsse" uses the Java
-    Secure Socket Extension package (JSSE). However, when running on Java 8,
-    the GCM cipher is removed from the list of enabled ciphers. This is due
-    to performance issues with GCM in Java 8. "default_jsse_with_gcm" uses
-    the JSSE with the default list of cipher suites.
+    "default_jsse", "default_jsse_with_gcm", "default", and "openssl".
+    "default_jsse" uses the Java Secure Socket Extension package (JSSE).
+    However, when running on Java 8, the GCM cipher is removed from the list
+    of enabled ciphers. This is due to performance issues with GCM in Java 8.
+    "default_jsse_with_gcm" uses the JSSE with the default list of cipher
+    suites. "default_jsse_with_gcm" is equivalent to the behavior prior to
+    this feature being introduced. "default" attempts to use OpenSSL rather
+    than the JSSE for SSL encryption, if OpenSSL libraries cannot be loaded,
+    it falls back to the "default_jsse" behavior. "openssl" attempts to use
+    OpenSSL as well, but fails if OpenSSL libraries cannot be loaded.
   </description>
 </property>
 
@@ -2093,6 +2297,13 @@
     This setting provides better performance compared to blob-specific saskeys.
   </description>
 </property>
+
+<property>
+  <name>fs.AbstractFileSystem.gs.impl</name>
+  <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+  <description>The AbstractFileSystem for gs: uris.</description>
+</property>
+
 <property>
   <name>io.seqfile.compress.blocksize</name>
   <value>1000000</value>
@@ -2221,9 +2432,10 @@
 
 <property>
   <name>ipc.client.rpc-timeout.ms</name>
-  <value>0</value>
+  <value>120000</value>
   <description>Timeout on waiting response from server, in milliseconds.
-  If ipc.client.ping is set to true and this rpc-timeout is greater than
+  If this rpc-timeout is 0, it means no timeout. If this rpc-timeout is greater
+  than 0, and ipc.client.ping is set to true, and this rpc-timeout is greater than
   the value of ipc.ping.interval, the effective value of the rpc-timeout is
   rounded up to multiple of ipc.ping.interval.
   </description>
@@ -2410,6 +2622,15 @@
   <value>10</value>
   <description>The number of top (i.e., heaviest) users to emit metric
     information about. This property applies to DecayRpcScheduler.
+  </description>
+</property>
+
+<property>
+  <name>ipc.[port_number].decay-scheduler.service-users</name>
+  <value></value>
+  <description>Service users will always be scheduled into the highest-priority
+    queue and won't be included in the priority computation of normal user
+    calls. They are specified as a comma-separated list.
   </description>
 </property>
 
@@ -2674,7 +2895,7 @@
   <value>${user.home}/hadoop-http-auth-signature-secret</value>
   <description>
     The signature secret for signing the authentication tokens.
-    The same secret should be used for JT/NN/DN/TT configurations.
+    A different secret should be used for each service.
   </description>
 </property>
 
@@ -2916,19 +3137,12 @@
 </property>
 
 <property>
-  <name>hadoop.ssl.enabled</name>
-  <value>false</value>
-  <description>
-    Deprecated. Use dfs.http.policy and yarn.http.policy instead.
-  </description>
-</property>
-
-<property>
   <name>hadoop.ssl.enabled.protocols</name>
   <value>TLSv1.2</value>
   <description>
     The supported SSL protocols. The parameter will only be used from
     DatanodeHttpServer.
+    Starting from Hadoop 3.3.0, TLSv1.3 is supported with Java 11 Runtime.
   </description>
 </property>
 
@@ -3015,6 +3229,14 @@
   <value>1</value>
   <description>
     FC connection retries for graceful fencing
+  </description>
+</property>
+
+<property>
+  <name>ha.failover-controller.active-standby-elector.zk.op.retries</name>
+  <value>3</value>
+  <description>
+    The number of zookeeper operation retry times in ActiveStandbyElector
   </description>
 </property>
 
@@ -3117,6 +3339,26 @@
   <description>
     Comma-separated list of crypto codec implementations for AES/CTR/NoPadding.
     The first implementation will be used if available, others are fallbacks.
+  </description>
+</property>
+
+<property>
+  <name>hadoop.security.crypto.codec.classes.sm4.ctr.nopadding</name>
+  <value>org.apache.hadoop.crypto.OpensslSm4CtrCryptoCodec, org.apache.hadoop.crypto.JceSm4CtrCryptoCodec</value>
+  <description>
+    Comma-separated list of crypto codec implementations for SM4/CTR/NoPadding.
+    The first implementation will be used if available, others are fallbacks.
+  </description>
+</property>
+
+<property>
+  <name>hadoop.security.openssl.engine.id</name>
+  <value></value>
+  <description>
+    The Openssl provided an engine mechanism that allow to specify third-party software
+    encryption library or hardware encryption device for encryption. The engine ID could
+    be vendor defined and will be passed to openssl, more info please see:
+    https://github.com/openssl/openssl/blob/master/README.ENGINE
   </description>
 </property>
 
@@ -3638,6 +3880,16 @@
       in audit logs.
     </description>
   </property>
+  <property>
+    <name>hadoop.caller.context.separator</name>
+    <value>,</value>
+    <description>
+      The separator is for context which maybe contain many fields. For example,
+      if the separator is ',',  and there are two key/value fields in context,
+      in which case the context string is "key1:value1,key2:value2". The
+      separator should not contain '\t', '\n', '='.
+    </description>
+  </property>
 <!-- SequenceFile's Sorter properties -->
   <property>
     <name>seq.io.sort.mb</name>
@@ -3782,4 +4034,35 @@
       fs space usage statistics refresh jitter in msec.
     </description>
   </property>
+
+  <property>
+    <name>hadoop.http.sni.host.check.enabled</name>
+    <value>false</value>
+    <description>
+      Enable Server Name Indication (SNI) host check for HTTPS enabled server.
+    </description>
+  </property>
+
+  <property>
+    <name>hadoop.metrics.jvm.use-thread-mxbean</name>
+    <value>false</value>
+    <description>
+      Whether or not ThreadMXBean is used for getting thread info in JvmMetrics,
+      ThreadGroup approach is preferred for better performance.
+    </description>
+  </property>
+
+  <property>
+    <name>fs.AbstractFileSystem.ofs.impl</name>
+    <value>org.apache.hadoop.fs.ozone.RootedOzFs</value>
+    <description>The AbstractFileSystem for Rooted Ozone
+      FileSystem ofs uri</description>
+  </property>
+
+  <property>
+    <name>fs.AbstractFileSystem.o3fs.impl</name>
+    <value>org.apache.hadoop.fs.ozone.OzFs</value>
+    <description>The AbstractFileSystem for Ozone FileSystem o3fs uri</description>
+  </property>
+
 </configuration>
